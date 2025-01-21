@@ -5,7 +5,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-
+import inspect
 import logging
 import os
 
@@ -37,6 +37,31 @@ class PanguWeather(Model):
         super().__init__(**kwargs)
         self.num_threads = num_threads
 
+    def cache_input_data(self):
+        """
+        Downloads input data and saves it to disk for later usage.
+        If self.file is available (cf. --file), data will either be safed under this filename.
+        If this argument is not parsed, it will be saved under <self.path>/pgw_input_<date>T>time>00.grib
+        """
+        fname_out = self.file
+
+        if self.file:
+            fname_out = self.file
+        else:
+            date_req = self.datetimes()[0]
+            fname_out = self.input_dir.joinpath(f"pgw_input_{str(date_req[0])}T{str(date_req[1])}00.grib")
+
+        # trigger download of data
+        fields_pl = self.fields_pl
+        fields_sf = self.fields_sfc
+
+        all_fields = fields_pl + fields_sf
+
+        # save to grib-files
+        LOG.info(f"Save input data to {fname_out}")
+        all_fields.save(fname_out)
+
+
     def run(self):
         fields_pl = self.fields_pl
 
@@ -46,7 +71,6 @@ class PanguWeather(Model):
 
         fields_pl_numpy = fields_pl.to_numpy(dtype=np.float32)
         fields_pl_numpy = fields_pl_numpy.reshape((5, 13, 721, 1440))
-
         fields_sfc = self.fields_sfc
         fields_sfc = fields_sfc.sel(param=self.param_sfc)
         fields_sfc = fields_sfc.order_by(param=self.param_sfc)
